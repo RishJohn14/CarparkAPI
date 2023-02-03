@@ -215,60 +215,41 @@ public class APIInputAgent
         }
     }
 
+    
+
     private Map<String, List<?>> jsonObjectToMap(JSONObject readings) {
 
         // First save the values as Object //
         
+        Map<String, List<?>> readingsMap = new HashMap<>();
         JSONArray jsArr;
         try {
+            
             jsArr = readings.getJSONArray("items");
-            for(int i=0; i<jsArr.length();i++) {
-                Map<String, List<?>> readingsMap = new HashMap<>();
+            for(int i=0; i<jsArr.length();i++)
+            {
                 JSONObject currentEntry = jsArr.getJSONObject(i);
-                Iterator<String> it = currentEntry.keys();
-                while(it.hasNext()) 
-                {
-                    String key = it.next();
-                    Object value = currentEntry.get(key);
+                
+                String key1 = "AvailableLots";
+                Object value = currentEntry.get(key1);
+                String key = key1+"_"+Integer.toString(i+1);
+                readingsMap.put(key,new ArrayList<>());
 
-                    if(value == JSONObject.NULL)
-                    value="NA";
+                readingsMap.get(key).add(value);
 
-                    if(!readingsMap.contains(key))
-                    readingsMap.put(key, new ArrayList<>());
+                List<Object> valuesUntyped = readingsMap.get(key);
+                List<?> valuesTyped = valuesUntyped.stream().map(x -> ((Number) x).intValue()).collect(Collectors.toList());
 
-                    readingsMap.get(key).add(value);
+                readingsMap.put(key,valuesTyped);
 
-                    List<Object> valuesUntyped = readingsMap.get(key);
-                    List<?> valuesTyped;
-
-                    if(key.equals("AvailableLots"))
-                    {
-                        valuesTyped = valuesUntyped.stream().map(x -> ((Number) x).intValue()).collect(Collectors.toList());
-                    }
-                    else
-                    {
-                        valuesTyped = valuesUntyped.stream().map(Object::toString).collect(Collectors.toList());
-                    }
-
-                    readingsMap.put(key,valuesTyped);
-
-
-                    //Create Time series here for individual JSONObjects
-
-                }
             }
         } catch (Exception e) {
             throw new JPSRuntimeException("Readings can not be empty!", e);
         }   
-
-        // Convert the values to the proper datatype //
-        Map<String, List<?>> readingsMapTyped = new HashMap<>();
-       
-        return readingsMapTyped;
+      
+        return readingsMap;
 
     }
-
 
     private List<TimeSeries<OffsetDateTime>> convertReadingsToTimeSeries(Map<String, List<?>> carparkReadings)
     throws  NoSuchElementException 
