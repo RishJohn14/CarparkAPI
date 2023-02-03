@@ -29,7 +29,7 @@ public class APIInputAgent
     private List<JSONKeyToIRIMapper> mappings;
     public static final String generatedIRIPrefix = TimeSeriesSparql.ns_kb + "Carpark";
     public static final String timeUnit = OffsetDateTime.class.getSimpleName();
-    public static final String timestampKey = "start";
+    public static final String timestampKey = "time";
     //public static final String status = "qcstatus";
     public static final ZoneOffset ZONE_OFFSET = ZoneOffset.UTC;
  
@@ -180,12 +180,13 @@ public class APIInputAgent
                 OffsetDateTime endDataTime;
                 try 
                  {
-                	endDataTime= tsclient.getMaxTime(ts.getDataIRIs().get(0));
+                	endDataTime= tsclient.getMaxTime(ts.getDataIRIs().get(0));      
                  } 
                  catch (Exception e) 
                  {
                 	throw new JPSRuntimeException("Could not get max time!");
-                  }
+                 }
+                 
                 OffsetDateTime startCurrentTime = ts.getTimes().get(0);
                 // If there is already a maximum time
                 if (endDataTime != null) 
@@ -215,8 +216,6 @@ public class APIInputAgent
         }
     }
 
-    
-
     private Map<String, List<?>> jsonObjectToMap(JSONObject readings) {
 
         // First save the values as Object //
@@ -241,8 +240,20 @@ public class APIInputAgent
                 List<?> valuesTyped = valuesUntyped.stream().map(x -> ((Number) x).intValue()).collect(Collectors.toList());
 
                 readingsMap.put(key,valuesTyped);
-
             }
+            SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy.HH:mm:ss");
+            String timeStamp = df.format(new Date());
+
+            String k = "time";
+            Object v = timeStamp;
+            readingsMap.put(k,new ArrayList<>());
+            readingsMap.get(k).add(v);
+
+            List<Object> valueUntyped = readingsMap.get(k);
+            List<?> valueTyped = valueUntyped.stream().map(Object::toString).collect(Collectors.toList());
+
+            readingsMap.put(k,valueTyped);
+            
         } catch (Exception e) {
             throw new JPSRuntimeException("Readings can not be empty!", e);
         }   
@@ -250,6 +261,7 @@ public class APIInputAgent
         return readingsMap;
 
     }
+
 
     private List<TimeSeries<OffsetDateTime>> convertReadingsToTimeSeries(Map<String, List<?>> carparkReadings)
     throws  NoSuchElementException 
