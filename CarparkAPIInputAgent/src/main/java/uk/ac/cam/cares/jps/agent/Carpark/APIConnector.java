@@ -1,4 +1,3 @@
- //package uk.ac.cam.cares.jps.agent.WeatherAPI;
 
  import org.apache.http.client.HttpResponseException;
  import org.apache.http.client.methods.CloseableHttpResponse;
@@ -26,16 +25,18 @@
  {
      private String API_URL = "http://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2";
      private String date;
-     
+     private String accountKey;
+
      private static final String ERRORMSG = "Carpark data could not be retrieved";
      private static final Logger LOG = LogManager.getLogger(APIAgentLauncher.class);
    
  
      //Standard Constructor to initialise the instance variables
-     public APIConnector(String URL, String d)
+     public APIConnector(String URL, String d, String k)
      {
          API_URL=URL;
          date = d;
+         accountKey = k;
      }
      
  
@@ -108,6 +109,15 @@
              else
              {
                  throw new IOException("The file is missing: \"carpark.api_url=<api_url>\"");
+             }
+             
+             if(prop.containsKey("carpark.accountKey"))
+             {
+                 this.accountKey = prop.getProperty("carpark.accountKey");
+             }
+             else
+             {
+                 throw new IOException("The file is missing: \"carpark.accountKey=<accountKey>\"");
              }
              
  
