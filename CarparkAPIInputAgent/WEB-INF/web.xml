@@ -6,16 +6,16 @@
 		metadata-complete="false" 
 		version="3.1">
 
-	<display-name>caresWeatherStation-agent</display-name>
-	<description>Simple servlet to accept incoming request and retrieve readings from the caresWeatherStation database.</description>
+	<display-name>Carpark-agent</display-name>
+	<description>Simple servlet to accept incoming request and retrieve readings from the data.gov.sg carpark database.</description>
 
 	<servlet>
-		<servlet-name>CARESWeatherStationAgentServlet</servlet-name>
-		<servlet-class>uk.ac.cam.cares.jps.agent.caresWeatherStation.CARESWeatherStationInputAgentLauncher</servlet-class>
+		<servlet-name>CarparkAgentServlet</servlet-name>
+		<servlet-class>uk.ac.cam.cares.jps.agent.Carpark.APIAgentLauncher</servlet-class>
 	</servlet>
 
 	<servlet-mapping>
-		<servlet-name>CARESWeatherStationAgentServlet</servlet-name>
+		<servlet-name>CarparkAgentServlet</servlet-name>
 		<url-pattern>/</url-pattern>
 	</servlet-mapping>
 
