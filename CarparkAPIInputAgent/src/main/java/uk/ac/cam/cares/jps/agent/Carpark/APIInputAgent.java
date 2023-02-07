@@ -6,7 +6,7 @@ import uk.ac.cam.cares.jps.base.timeseries.TimeSeries;
 import uk.ac.cam.cares.jps.base.timeseries.TimeSeriesClient;
 import uk.ac.cam.cares.jps.base.timeseries.TimeSeriesSparql;
 
-
+import java.text.SimpleDateFormat;
 import uk.ac.cam.cares.jps.base.exception.JPSRuntimeException;
 import java.io.File;
 import java.io.FileInputStream;
@@ -221,10 +221,13 @@ public class APIInputAgent
         // First save the values as Object //
         
         Map<String, List<?>> readingsMap = new HashMap<>();
+        
+        Map<String, List<Object>> firstMap = new HashMap<>();
+        
         JSONArray jsArr;
         try {
             
-            jsArr = readings.getJSONArray("items");
+            jsArr = readings.getJSONArray("value");
             for(int i=0; i<jsArr.length();i++)
             {
                 JSONObject currentEntry = jsArr.getJSONObject(i);
@@ -232,11 +235,11 @@ public class APIInputAgent
                 String key1 = "AvailableLots";
                 Object value = currentEntry.get(key1);
                 String key = key1+"_"+Integer.toString(i+1);
-                readingsMap.put(key,new ArrayList<>());
+                firstMap.put(key,new ArrayList<>());
 
-                readingsMap.get(key).add(value);
+                firstMap.get(key).add(value);
 
-                List<Object> valuesUntyped = readingsMap.get(key);
+                List<Object> valuesUntyped = firstMap.get(key);
                 List<?> valuesTyped = valuesUntyped.stream().map(x -> ((Number) x).intValue()).collect(Collectors.toList());
 
                 readingsMap.put(key,valuesTyped);
@@ -246,10 +249,10 @@ public class APIInputAgent
 
             String k = "time";
             Object v = timeStamp;
-            readingsMap.put(k,new ArrayList<>());
-            readingsMap.get(k).add(v);
+            firstMap.put(k,new ArrayList<>());
+            firstMap.get(k).add(v);
 
-            List<Object> valueUntyped = readingsMap.get(k);
+            List<Object> valueUntyped = firstMap.get(k);
             List<?> valueTyped = valueUntyped.stream().map(Object::toString).collect(Collectors.toList());
 
             readingsMap.put(k,valueTyped);
