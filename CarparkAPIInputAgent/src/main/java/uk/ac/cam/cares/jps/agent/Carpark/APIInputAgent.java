@@ -1,3 +1,4 @@
+package uk.ac.cam.cares.jps.agent.Carpark;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jooq.exception.DataAccessException;
@@ -234,7 +235,7 @@ public class APIInputAgent
                 
                 String key1 = "AvailableLots";
                 Object value = currentEntry.get(key1);
-                String key = key1+"_"+Integer.toString(i+1);
+                String key = key1+"_"+currentEntry.get("CarParkID")+"_"+currentEntry.get("LotType");
                 firstMap.put(key,new ArrayList<>());
 
                 firstMap.get(key).add(value);
@@ -244,13 +245,16 @@ public class APIInputAgent
 
                 readingsMap.put(key,valuesTyped);
             }
-            SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy.HH:mm:ss");
-            String timeStamp = df.format(new Date());
+            long timestamp = System.currentTimeMillis();
+            Date date = new java.util.Date(timestamp);
+            SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            
+            Object ts = sdf.format(date);
 
             String k = "time";
-            Object v = timeStamp;
             firstMap.put(k,new ArrayList<>());
-            firstMap.get(k).add(v);
+            firstMap.get(k).add(ts);
 
             List<Object> valueUntyped = firstMap.get(k);
             List<?> valueTyped = valueUntyped.stream().map(Object::toString).collect(Collectors.toList());
@@ -310,21 +314,10 @@ public class APIInputAgent
    }
    private OffsetDateTime convertStringToOffsetDateTime(String timestamp)  
    {
-     timestamp=timestamp.replace("+08:00","");
-
-     DateTimeFormatter dtf=DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-     LocalDateTime localTime=LocalDateTime.parse(timestamp,dtf);
-
-
-     // Then add the zone id
-     LocalDateTime now = LocalDateTime.now();
-     ZoneId zone = ZoneId.of("Asia/Singapore");
-     ZoneOffset zoneOffset = zone.getRules().getOffset(now);
-
-
-
-
-     return OffsetDateTime.of(localTime,zoneOffset);
+ // Convert first to a local time
+ LocalDateTime localTime = LocalDateTime.parse(timestamp);
+ // Then add the zone id
+ return OffsetDateTime.of(localTime, ZoneOffset.UTC) ;
    }
 
 
