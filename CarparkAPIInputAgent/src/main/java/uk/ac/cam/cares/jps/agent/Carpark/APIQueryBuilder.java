@@ -1,0 +1,442 @@
+package uk.ac.cam.cares.jps.agent.Carpark;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.jooq.exception.DataAccessException;
+import uk.ac.cam.cares.jps.base.util.JSONKeyToIRIMapper;
+import uk.ac.cam.cares.jps.base.timeseries.TimeSeries;
+import uk.ac.cam.cares.jps.base.timeseries.TimeSeriesClient;
+import uk.ac.cam.cares.jps.base.timeseries.TimeSeriesSparql;
+
+import java.text.SimpleDateFormat;
+import uk.ac.cam.cares.jps.base.exception.JPSRuntimeException;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
+
+import javax.lang.model.util.ElementScanner6;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import org.eclipse.rdf4j.sparqlbuilder.core.Prefix;
+import org.eclipse.rdf4j.sparqlbuilder.core.SparqlBuilder;
+import org.eclipse.rdf4j.sparqlbuilder.graphpattern.TriplePattern;
+import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
+import org.eclipse.rdf4j.sparqlbuilder.core.Variable;
+import org.eclipse.rdf4j.sparqlbuilder.core.query.SelectQuery;
+
+import org.json.JSONArray;
+
+import uk.ac.cam.cares.jps.base.query.RemoteStoreClient;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
+import static org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf.iri;
+
+import org.eclipse.rdf4j.sparqlbuilder.core.query.DeleteDataQuery;
+import org.eclipse.rdf4j.sparqlbuilder.core.query.InsertDataQuery;
+import org.eclipse.rdf4j.sparqlbuilder.core.query.Queries;
+
+public class APIQueryBuilder
+{
+
+    public static final String OntoCarpark = "http://www.theworldavatar.com/kg/ontocarpark/";
+    
+
+    public String queryEndpoint;
+    public String updateEndpoint;
+
+    RemoteStoreClient kbClient;
+    /**
+     * Prefixes
+     */ 
+	private static final Prefix PREFIX_ONTOCARPARK = SparqlBuilder.prefix("ontoCarpark", iri(OntoCarpark));
+    public static final String generatedIRIPrefix = TimeSeriesSparql.ns_kb + "Carpark";
+
+	
+    
+    
+    /**
+     * Relationships
+     */ 
+	private static final Iri hasAgency = PREFIX_ONTOCARPARK.iri("hasAgency");
+	private static final Iri hasID = PREFIX_ONTOCARPARK.iri("hasID");
+	private static final Iri hasLots = PREFIX_ONTOCARPARK.iri("hasLots");
+	private static final Iri hasLotType = PREFIX_ONTOCARPARK.iri("hasLotType");
+	private static final Iri hasLocation = PREFIX_ONTOCARPARK.iri("hasLocation");
+	private static final Iri hasLatitude = PREFIX_ONTOCARPARK.iri("hasLatitude");
+    private static final Iri hasLongitude = PREFIX_ONTOCARPARK.iri("hasLongitude");
+    
+
+     /**
+     * Classes
+     */
+    
+     private static final Iri AvailableLots = PREFIX_ONTOCARPARK.iri("AvailableLots");
+     private static final Iri Carpark = PREFIX_ONTOCARPARK.iri("Carpark");
+     private static final Iri Location = PREFIX_ONTOCARPARK.iri("Location");
+     private static final Iri LotType = PREFIX_ONTOCARPARK.iri("LotType");
+     private static final Iri Cars = PREFIX_ONTOCARPARK.iri("Cars");
+     private static final Iri Motorcycles = PREFIX_ONTOCARPARK.iri("Motorcycles");
+     private static final Iri HeavyVehicles = PREFIX_ONTOCARPARK.iri("HeavyVehicles");
+     
+     
+
+
+    public String agentProperties;
+    public String clientProperties;
+    public JSONObject readings;
+
+    private List<JSONKeyToIRIMapper> mappings;
+
+    public APIQueryBuilder(String agentProp, String clientProp) throws IOException
+    {
+        agentProperties = agentProp;
+        clientProperties = clientProp;
+
+
+        loadconfigs(clientProperties);
+        //readings endpoints from client.properties
+
+        loadproperties(agentProperties);
+        
+        kbClient = new RemoteStoreClient();
+
+        kbClient.setUpdateEndpoint(updateEndpoint);
+        kbClient.setQueryEndpoint(queryEndpoint);
+
+
+    }
+
+    public void loadproperties(String propfile) throws IOException
+    {
+        try(InputStream input = new FileInputStream(propfile))
+        {
+            Properties prop = new Properties();
+            prop.load(input);
+
+            String mappingfolder;
+
+            try
+            {
+                mappingfolder = System.getenv(prop.getProperty("Carpark.mappingfolder"));
+            }
+            catch(NullPointerException e)
+            {
+                throw new IOException("The key Carpark.mappingfolder cannot be found");
+            }
+
+            if(mappingfolder == null)
+            {
+                throw new InvalidPropertiesFormatException("The properties file does not contain the key Carpark.mappingfolder with a path to the folder containing the required JSON key to IRI Mappings");
+            }
+
+            mappings = new ArrayList<>();
+            File folder = new File(mappingfolder);
+            File[] mappingFiles = folder.listFiles();
+
+            if(mappingFiles.length == 0)
+            {
+                throw new IOException("No files in folder");
+            }
+
+            else
+            {
+                for(File mappingFile : mappingFiles)
+                {
+                    JSONKeyToIRIMapper mapper = new JSONKeyToIRIMapper(generatedIRIPrefix, mappingFile.getAbsolutePath());
+                    mappings.add(mapper);
+                    mapper.saveToFile(mappingFile.getAbsolutePath());
+                }
+            }
+
+        }
+
+
+    }
+
+    public void loadconfigs(String filepath) throws IOException
+    {
+        File file = new File(filepath);
+        if(!file.exists())
+        {
+            throw new FileNotFoundException("There was no file found in the path");
+        }
+        
+        try(InputStream input = new FileInputStream(file))
+        {
+            Properties prop = new Properties();
+            prop.load(input);
+
+            if(prop.containsKey("sparql.query.endpoint"))
+            {
+                queryEndpoint = prop.getProperty("sparql.query.endpoint");
+            }
+            else
+            {
+                throw new IOException("The file is missing: \"sparql.query.endpoint=<queryEndpoint>\"");
+            }
+
+            if(prop.containsKey("sparql.update.endpoint"))
+            {
+                updateEndpoint = prop.getProperty("sparql.update.endpoint");
+            }
+            else
+            {
+                throw new IOException("The file is missing: \"sparql.update.endpoint=<updateEndpoint>\"");
+            }
+        }
+    }
+
+    public void instantiateIfNotInstantiated(JSONObject carparkReadings)
+    {
+        readings = carparkReadings;
+        List<String> iris;
+
+        for(JSONKeyToIRIMapper mapping : mappings)
+        {
+            iris = mapping.getAllIRIs();
+           
+           for(String iri:iris)
+           if(!iri.contains("Carpark_time_"))
+           {
+            {
+                String r=null;
+                Variable c = SparqlBuilder.var("c");
+                SelectQuery q = Queries.SELECT();
+    
+                //Create a triplePattern
+    
+                TriplePattern qP = iri(iri).isA(c);
+                q.prefix(PREFIX_ONTOCARPARK).select(c).where(qP);
+                kbClient.setQuery(q.getQueryString());
+    
+    
+                try
+                {
+                    JSONArray qR = kbClient.executeQuery();
+    
+                    if(qR.isEmpty())
+                    {
+                        TriplePattern P1 = iri(iri).isA(AvailableLots);
+                        InsertDataQuery insert = Queries.INSERT_DATA(P1);
+                        insert.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert.getQueryString());
+                    }
+                    else
+                    {
+                        continue;
+                    }
+    
+                }
+                catch(Exception e)
+                {
+                    throw new JPSRuntimeException("Could not check for an rdf:type for the Data IRI");
+                }
+    
+                StringTokenizer st = new StringTokenizer(iri,"_");
+                for(int i=0;i<2;i++)
+                st.nextToken();
+                String CarparkID,lotType;
+    
+                CarparkID = st.nextToken();
+                lotType = st.nextToken();
+    
+    
+                final String lotTypeIri = OntoCarpark + "Carpark_LotType_" + UUID.randomUUID();
+    
+                if(lotType.equalsIgnoreCase("C"))
+                {
+                    TriplePattern updatePattern = iri(lotTypeIri).isA(Cars);
+                    InsertDataQuery insert2 = Queries.INSERT_DATA(updatePattern);
+                    insert2.prefix(PREFIX_ONTOCARPARK);
+    
+                    kbClient.executeUpdate(insert2.getQueryString());
+                }
+                else if(lotType.equalsIgnoreCase("H"))
+                {
+                    TriplePattern updatePattern = iri(lotTypeIri).isA(HeavyVehicles);
+                    InsertDataQuery insert2 = Queries.INSERT_DATA(updatePattern);
+                    insert2.prefix(PREFIX_ONTOCARPARK);
+    
+                    kbClient.executeUpdate(insert2.getQueryString());
+                }
+                else
+                {
+                    TriplePattern updatePattern = iri(lotTypeIri).isA(Motorcycles);
+                    InsertDataQuery insert2 = Queries.INSERT_DATA(updatePattern);
+                    insert2.prefix(PREFIX_ONTOCARPARK);
+    
+                    kbClient.executeUpdate(insert2.getQueryString());
+                }
+    
+                //Creating IRI to check for multiple LotType
+    
+                String result = null;
+                Variable carparkIRI = SparqlBuilder.var("carparkIRI");
+    
+                SelectQuery query = Queries.SELECT();
+                TriplePattern queryPattern = carparkIRI.has(hasID,CarparkID);
+                query.prefix(PREFIX_ONTOCARPARK).select(carparkIRI).where(queryPattern);
+    
+                kbClient.setQuery(query.getQueryString());
+    
+                try
+                {
+                    JSONArray queryResult = kbClient.executeQuery();
+                    TriplePattern pattern1;
+    
+                    if(!queryResult.isEmpty())
+                    {
+                        result = kbClient.executeQuery().getJSONObject(0).getString("carparkIRI");
+                        pattern1 = iri(result).has(hasLotType,iri(lotTypeIri));
+                    }
+                    else
+                    {
+                        //if queryresult is empty 
+                        result = OntoCarpark + "Carpark_" + UUID.randomUUID();
+                        pattern1 = iri(result).has(hasLotType,iri(lotTypeIri));
+                    }
+                    InsertDataQuery insert3 = Queries.INSERT_DATA(pattern1);
+                    insert3.prefix(PREFIX_ONTOCARPARK);
+                    kbClient.executeUpdate(insert3.getQueryString());
+    
+                    TriplePattern pattern8 = iri(result).isA(Carpark);
+                    InsertDataQuery insert10 = Queries.INSERT_DATA(pattern8);
+                    insert10.prefix(PREFIX_ONTOCARPARK);
+                    kbClient.executeUpdate(insert10.getQueryString());
+    
+    
+                    //TriplePattern to link LotType IRI to data Iri
+    
+                    TriplePattern updatePattern = iri(lotTypeIri).has(hasLots,iri(iri));
+                    InsertDataQuery insertUpdate = Queries.INSERT_DATA(updatePattern);
+                    insertUpdate.prefix(PREFIX_ONTOCARPARK);
+                    kbClient.executeUpdate(insertUpdate.getQueryString());
+                }
+                catch(Exception e)
+                {
+                    throw new JPSRuntimeException("Unable to execute query: " + query.getQueryString());
+                }
+    
+                String result1 = null;
+                Variable carparkLocationIRI = SparqlBuilder.var("carparkLocationIRI");
+    
+                SelectQuery query1 = Queries.SELECT();
+                TriplePattern queryPattern1 =  iri(result).has(hasLocation, carparkLocationIRI);
+    
+    
+                query1.prefix(PREFIX_ONTOCARPARK).select(carparkLocationIRI).where(queryPattern1);
+                kbClient.setQuery(query1.getQueryString());
+    
+                try
+                {
+                    JSONArray queryResult1 = kbClient.executeQuery();
+                   
+                    if(!queryResult1.isEmpty())
+                    {
+                        //Carpark IRI and its following relations have already been instantiated. Loop proceeds to the next IRI immediately as it doesnt enter the else condition
+                    }
+                    else
+                    {
+                        String build2 = OntoCarpark + "CarparkLocation_" + UUID.randomUUID();
+                        TriplePattern pattern2 = iri(result).has(hasLocation, iri(build2));
+                        InsertDataQuery insert4 = Queries.INSERT_DATA(pattern2);
+                        insert4.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert4.getQueryString());
+    
+                        //Obtaining Location
+                        TriplePattern pattern3 = iri(build2).isA(Location);
+                        InsertDataQuery insert5 = Queries.INSERT_DATA(pattern3);
+                        insert5.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert5.getQueryString());
+    
+                        String loc="";
+                        String agency = "";
+                        try
+                        {
+                           JSONArray jsArr;
+                           jsArr = readings.getJSONArray("value"); 
+                           for(int i=0; i<jsArr.length();i++)
+                            {
+                                JSONObject currentObject = jsArr.getJSONObject(i);
+                                String ID = currentObject.getString("CarParkID");
+                                //Check for the correct iD and then store the Location and Agency
+                                if(ID.equals(CarparkID))
+                                {
+                                    loc = currentObject.getString("Location");
+                                    agency = currentObject.getString("Agency");
+                                    //Storing the values in String variables
+                                }
+                            }
+    
+                        }
+                        catch (Exception e) 
+                        {
+                           throw new JPSRuntimeException("Readings can not be empty!", e);
+                        }   
+    
+                        //Extracting out the Lat and Longitude and converting it into a Double 
+                        StringTokenizer str = new StringTokenizer(loc, " ");
+                        Double lat = Double.parseDouble(str.nextToken());
+                        Double lon = Double.parseDouble(str.nextToken());
+    
+                        //TriplePattern for Latitude
+    
+                        TriplePattern pattern4 = iri(build2).has(hasLatitude,lat);
+                        InsertDataQuery insert6 = Queries.INSERT_DATA(pattern4);
+                        insert6.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert6.getQueryString());
+    
+                        //TriplePattern for Longitude
+                        TriplePattern pattern5 = iri(build2).has(hasLongitude,lon);
+                        InsertDataQuery insert7 = Queries.INSERT_DATA(pattern5);
+                        insert7.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert7.getQueryString());
+    
+                        //TriplePattern for Agency
+                        TriplePattern pattern6 = iri(result).has(hasAgency,agency);
+                        InsertDataQuery insert8 = Queries.INSERT_DATA(pattern6);
+                        insert8.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert8.getQueryString());
+    
+    
+                        //TriplePattern for CarparkID
+    
+                        TriplePattern pattern7 = iri(result).has(hasID, CarparkID);
+                        InsertDataQuery insert9 = Queries.INSERT_DATA(pattern7);
+                        insert9.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert9.getQueryString());
+    
+    
+                        //Looping through for subsequent IRIs
+                    }
+    
+    
+                }
+                catch (Exception e)
+                {
+                    throw new JPSRuntimeException("Unable to execute query: " +  query1.getQueryString());
+                }
+    
+            }
+    
+           }
+           
+        }
+    }
+
+
+}
+
+
+
