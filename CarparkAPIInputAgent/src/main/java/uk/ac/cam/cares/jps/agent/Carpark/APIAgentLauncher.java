@@ -1,3 +1,4 @@
+package uk.ac.cam.cares.jps.agent.Carpark;
 import org.json.JSONObject;
 
 import netscape.javascript.JSObject;
@@ -187,6 +188,36 @@ public class APIAgentLauncher extends JPSAgent
             Log.info("No new carpark data recorded");
             jsonMessage.accumulate("Result","No new carpark data recorded");
         }
+
+        //To call APIQueryBuilder
+       
+        APIQueryBuilder queryBuilder;
+
+        try
+        {
+            queryBuilder = new APIQueryBuilder(args[0],args[1]);
+            Log.info("QueryBuilder constructed");
+          
+        }
+        catch(Exception e)
+        {
+            Log.error("Could not build the QueryBuilder");
+            throw new JPSRuntimeException("Could not successfully initialise the QueryBuilder Object");
+        }
+
+        try
+        {
+            queryBuilder.instantiateIfNotInstantiated(carparkReadings);
+            Log.info("All Data IRIs within Carpark Readings successfully instantiated");
+            jsonMessage.accumulate("Result","All Data IRIs successfully instantiated");
+
+        }
+        catch(Exception e)
+        {
+            Log.error("Could not Instantiate the IRIs successfully");
+            jsonMessage.accumulate("Result","IRIs not instantiated properly");
+        }
+
        return jsonMessage;
     }
 }
