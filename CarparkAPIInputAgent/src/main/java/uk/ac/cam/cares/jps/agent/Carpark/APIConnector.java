@@ -1,4 +1,4 @@
-
+ package uk.ac.cam.cares.jps.agent.Carpark;
  import org.apache.http.client.HttpResponseException;
  import org.apache.http.client.methods.CloseableHttpResponse;
  import org.apache.http.client.methods.HttpGet;
@@ -69,6 +69,7 @@
          try ( CloseableHttpClient httpclient =  HttpClients.createDefault())
          {
              HttpGet readrequest = new HttpGet(path);
+             readrequest.setHeader("AccountKey", accountKey); 
              try ( CloseableHttpResponse response = httpclient.execute(readrequest))
              {
                  int status = response.getStatusLine().getStatusCode();
