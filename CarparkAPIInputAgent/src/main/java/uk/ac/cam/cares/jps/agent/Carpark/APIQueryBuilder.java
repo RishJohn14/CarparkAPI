@@ -467,7 +467,7 @@ public class APIQueryBuilder
 
                             //is currentCarpark same as the Devlabel of the IRI
 
-                            if(FuzzySearch.weightedRato(currentName,Devlabel)>85)
+                            if(FuzzySearch.weightedRatio(currentName,Devlabel)>85)
                             {
                                 check=1;
 
