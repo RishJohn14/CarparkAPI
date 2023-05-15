@@ -48,26 +48,37 @@ import org.eclipse.rdf4j.sparqlbuilder.core.query.Queries;
 
 public class APIQueryBuilder
 {
-
-    public static final String OntoCarpark = "http://www.theworldavatar.com/kg/ontocarpark/";
     
 
     public String queryEndpoint;
     public String updateEndpoint;
 
     RemoteStoreClient kbClient;
+
     /**
+     * Namespaces for ontologies
+     */
+
+    public static final String OntoCarpark = "https://www.theworldavatar.com/kg/ontocarpark/";
+    public static final String RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#";
+
+    
+    
+	/**
      * Prefixes
      */ 
-	private static final Prefix PREFIX_ONTOCARPARK = SparqlBuilder.prefix("ontoCarpark", iri(OntoCarpark));
-    public static final String generatedIRIPrefix = TimeSeriesSparql.ns_kb + "Carpark";
 
-	
+    private static final Prefix PREFIX_ONTOCARPARK = SparqlBuilder.prefix("ontoCarpark", iri(OntoCarpark));
+    public static final String generatedIRIPrefix = TimeSeriesSparql.ns_kb + "Carpark";
+    private static final Prefix PREFIX_RDFS = SparqlBuilder.prefix("rdfs", iri(RDFS_NS));
+
     
     
-    /**
+	/**
      * Relationships
-     */ 
+    */ 
+
+
 	private static final Iri hasAgency = PREFIX_ONTOCARPARK.iri("hasAgency");
 	private static final Iri hasID = PREFIX_ONTOCARPARK.iri("hasID");
 	private static final Iri hasLots = PREFIX_ONTOCARPARK.iri("hasLots");
@@ -75,26 +86,37 @@ public class APIQueryBuilder
 	private static final Iri hasLocation = PREFIX_ONTOCARPARK.iri("hasLocation");
 	private static final Iri hasLatitude = PREFIX_ONTOCARPARK.iri("hasLatitude");
     private static final Iri hasLongitude = PREFIX_ONTOCARPARK.iri("hasLongitude");
-    
+    private static final Iri hasTimeSeries = PREFIX_ONTOCARPARK.iri("hasTimeSeries");
+    private static final Iri hasWeekdayRates = PREFIX_ONTOCARPARK.iri("hasWeekdayRates");
+    private static final Iri hasSaturdayRates = PREFIX_ONTOCARPARK.iri("hasSaturdayRates");
+    private static final Iri hasSundayAndPHRates = PREFIX_ONTOCARPARK.iri("hasSundayAndPHRates");
+    private static final Iri label = PREFIX_RDFS.iri("label");
 
-     /**
+    /**
      * Classes
-     */
-    
-     private static final Iri AvailableLots = PREFIX_ONTOCARPARK.iri("AvailableLots");
-     private static final Iri Carpark = PREFIX_ONTOCARPARK.iri("Carpark");
-     private static final Iri Location = PREFIX_ONTOCARPARK.iri("Location");
-     private static final Iri LotType = PREFIX_ONTOCARPARK.iri("LotType");
-     private static final Iri Cars = PREFIX_ONTOCARPARK.iri("Cars");
-     private static final Iri Motorcycles = PREFIX_ONTOCARPARK.iri("Motorcycles");
-     private static final Iri HeavyVehicles = PREFIX_ONTOCARPARK.iri("HeavyVehicles");
-     
+    */
+
+    private static final Iri AvailableLots = PREFIX_ONTOCARPARK.iri("AvailableLots");
+    private static final Iri Agency = PREFIX_ONTOCARPARK.iri("Agency");
+    private static final Iri WeekdayRates = PREFIX_ONTOCARPARK.iri("WeekdayRates");
+    private static final Iri SaturdayRates = PREFIX_ONTOCARPARK.iri("SaturdayRates");
+    private static final Iri SundayAndPHRates = PREFIX_ONTOCARPARK.iri("SundayAndPHRates");
+    private static final Iri ID = PREFIX_ONTOCARPARK.iri("CarParkID");
+    private static final Iri Carpark = PREFIX_ONTOCARPARK.iri("Carpark");
+    private static final Iri Location = PREFIX_ONTOCARPARK.iri("Location");
+    private static final Iri Longitude = PREFIX_ONTOCARPARK.iri("Longitude");
+    private static final Iri Latitude = PREFIX_ONTOCARPARK.iri("Latitude");
+    private static final Iri LotType = PREFIX_ONTOCARPARK.iri("LotType");
+    private static final Iri Cars = PREFIX_ONTOCARPARK.iri("Cars");
+    private static final Iri Motorcycles = PREFIX_ONTOCARPARK.iri("Motorcycles");
+    private static final Iri HeavyVehicles = PREFIX_ONTOCARPARK.iri("HeavyVehicles");
      
 
 
     public String agentProperties;
     public String clientProperties;
     public JSONObject readings;
+    public JSONObject priceReadings;
 
     private List<JSONKeyToIRIMapper> mappings;
 
@@ -197,10 +219,14 @@ public class APIQueryBuilder
         }
     }
 
-    public void instantiateIfNotInstantiated(JSONObject carparkReadings)
+    public void instantiateIfNotInstantiated(JSONObject carparkReadings, JSONObject prices)
     {
         readings = carparkReadings;
+        priceReadings = prices;
+
         List<String> iris;
+
+        JSONArray carparkRates = priceReadings.getJSONObject("result").getJSONArray("records");
 
         for(JSONKeyToIRIMapper mapping : mappings)
         {
@@ -362,6 +388,8 @@ public class APIQueryBuilder
     
                         String loc="";
                         String agency = "";
+                        String Devlabel="";
+
                         try
                         {
                            JSONArray jsArr;
@@ -375,6 +403,8 @@ public class APIQueryBuilder
                                 {
                                     loc = currentObject.getString("Location");
                                     agency = currentObject.getString("Agency");
+                                    Devlabel = currentObject.getString("Development");
+
                                     //Storing the values in String variables
                                 }
                             }
@@ -416,8 +446,81 @@ public class APIQueryBuilder
                         InsertDataQuery insert9 = Queries.INSERT_DATA(pattern7);
                         insert9.prefix(PREFIX_ONTOCARPARK);
                         kbClient.executeUpdate(insert9.getQueryString());
-    
-    
+
+                        //TriplePattern for Label(Development)
+
+                        TriplePattern pattern8 = iri(result).has(label,Devlabel);
+                        InsertDataQuery insert10 = Queries.INSERT_DATA(pattern8);
+                        insert10.prefix(PREFIX_RDFS);
+                        kbClient.executeUpdate(insert10.getQueryString());
+
+
+                        //FuzzyMatching for the carpark Prices
+
+                        String saturdayRate="Carpark prices unavailable",weekday="Carpark prices unavailable",sundayAndPHRates="Carpark prices unavailable";
+                        int check=0;
+
+                        for(int i=0;i<carparkRates.length();i++)
+                        {
+                            JSONObject currentCarpark = carparkRates.getJSONObject(i);
+                            String currentName = currentCarpark.getString("carpark");
+
+                            //is currentCarpark same as the Devlabel of the IRI
+
+                            if(FuzzySearch.weightedRato(currentName,Devlabel)>85)
+                            {
+                                check=1;
+
+                                saturdayRate =  currentCarpark.getString("saturday_rate");
+                                sundayAndPHRates = currentCarpark.getString("sunday_publicholiday_rate");
+                                String weekday1 = currentCarpark.getString("weekdays_rate_1");
+                                String weekday2 = currentCarpark.getString("weekdays_rate_2");
+                                
+                                if(!(weekday2.equals("-")) && !(weekday2.equals(weekday1)))
+                                {
+                                    weekday = weekday1+";"+weekday2;
+                                }
+                                else
+                                {
+                                    weekday = weekday1;
+                                }
+
+                                if(sundayAndPHRates.equals("Same as Saturday"))
+                                {
+                                    sundayAndPHRates = saturdayRate;
+                                }
+
+                                if(sundayAndPHRates.equals("Same as wkdays"))
+                                {
+                                    sundayAndPHRates = weekday;
+                                }
+
+                                if(saturdayRate.equals("Same as wkdays"))
+                                {
+                                    saturdayRate = weekday;
+                                }
+                            }
+                            if(check==1)
+                            i=carparkRates.length();
+
+                        }
+
+                        TriplePattern pattern9 = iri(result).has(hasWeekdayRates,weekday);
+                        InsertDataQuery insert11 = Queries.INSERT_DATA(pattern9);
+                        insert11.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert11.getQueryString());
+
+                        TriplePattern pattern10 = iri(result).has(hasSaturdayRates,saturdayRate);
+                        InsertDataQuery insert12 = Queries.INSERT_DATA(pattern10);
+                        insert12.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert12.getQueryString());
+
+                        TriplePattern pattern11 = iri(result).has(hasSundayAndPHRates,sundayAndPHRates);
+                        InsertDataQuery insert13 = Queries.INSERT_DATA(pattern11);
+                        insert13.prefix(PREFIX_ONTOCARPARK);
+                        kbClient.executeUpdate(insert13.getQueryString());
+
+
                         //Looping through for subsequent IRIs
                     }
     
@@ -435,8 +538,4 @@ public class APIQueryBuilder
         }
     }
 
-
 }
-
-
-
