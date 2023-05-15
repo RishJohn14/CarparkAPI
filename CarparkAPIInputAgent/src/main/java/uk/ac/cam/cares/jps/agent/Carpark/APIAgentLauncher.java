@@ -189,6 +189,22 @@ public class APIAgentLauncher extends JPSAgent
             jsonMessage.accumulate("Result","No new carpark data recorded");
         }
 
+        JSONObject pricingReadings;
+
+        try
+        {
+            pricingReadings = connector.getPrices();
+        }
+        catch(Exception e)
+        {
+            Log.error(GET_READINGS_ERROR_MSG);
+            throw new JPSRuntimeException(GET_READINGS_ERROR_MSG);
+        }
+        
+        Log.info(String.format("Retrieved pricing readings for %d carparks", pricingReadings.length()));
+        jsonMessage.accumulate("Result","Retrieved"+pricingReadings.getJSONObject("result").getJSONArray("records").length()+"carpark price readings");
+
+
         //To call APIQueryBuilder
        
         APIQueryBuilder queryBuilder;
@@ -207,7 +223,7 @@ public class APIAgentLauncher extends JPSAgent
 
         try
         {
-            queryBuilder.instantiateIfNotInstantiated(carparkReadings);
+            queryBuilder.instantiateIfNotInstantiated(carparkReadings,pricingReadings);
             Log.info("All Data IRIs within Carpark Readings successfully instantiated");
             jsonMessage.accumulate("Result","All Data IRIs successfully instantiated");
 
@@ -218,6 +234,7 @@ public class APIAgentLauncher extends JPSAgent
             jsonMessage.accumulate("Result","IRIs not instantiated properly");
         }
 
+        
        return jsonMessage;
     }
 }
