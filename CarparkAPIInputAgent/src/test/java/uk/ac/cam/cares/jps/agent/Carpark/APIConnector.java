@@ -1,4 +1,4 @@
-package test.java.uk.ac.cam.cares.jps.agent.Carpark;
+package uk.ac.cam.cares.jps.agent.Carpark;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 
@@ -35,11 +35,11 @@ public class APIConnectorTest {
     @Rule
     public WireMockRule carparkAPIMock = new WireMockRule(PORT);
 
-    private APIConnector testConnector;
+    private APIConnectorTest testConnector;
 
     @Before
     public void initializeTestConnector() {
-        testConnector = new APIConnector("password", "id", TEST_URL);
+        testConnector = new APIConnector(TEST_URL,"password", "id", TEST_URL);
     }
 
     @After
@@ -111,7 +111,7 @@ public class APIConnectorTest {
             Assert.fail();
         } catch (InvocationTargetException e) {
             Assert.assertEquals(IOException.class, e.getCause().getClass());
-            Assert.assertEquals(noStationId, e.getCause().getMessage());
+            Assert.assertEquals(noURL, e.getCause().getMessage());
         }
 
         // Test for proper accountKey and url
