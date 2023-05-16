@@ -1,4 +1,4 @@
-package test.java.uk.ac.cam.cares.jps.agent.Carpark;
+package uk.ac.cam.cares.jps.agent.Carpark;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -90,7 +90,7 @@ public class APIInputAgentTest {
             jsArr.put(i,currentCarpark);
         }
         
-        carparkReadings.put("observations",jsArr);
+        carparkReadings.put("value",jsArr);
     }
 
 
@@ -162,7 +162,7 @@ public class APIInputAgentTest {
             SystemLambda.withEnvironmentVariable("TEST_MAPPINGS", mappingFolder.getCanonicalPath()).execute(() -> {
                 APIInputAgent agent = new APIInputAgent(propertiesFile);
                 // Assert that the mappings were set
-                Assert.assertEquals(2, agent.getNumberOfTimeSeries());
+                Assert.assertEquals(2, agent.getNumberofTimeSeries());
             });
         }
         catch (Exception e) {
@@ -340,7 +340,7 @@ public class APIInputAgentTest {
     @Test
     public void testUpdateDataPrune() {
 
-        JSONArray jsArr1 = carpark.getJSONArray("value");
+        JSONArray jsArr1 = carparkReadings.getJSONArray("value");
         JSONObject currentEntry1 = jsArr1.getJSONObject(0);
 
         String maxTime = currentEntry1.getString(APIInputAgent.timestampKey).replace("Z","");
