@@ -277,41 +277,45 @@ public class APIInputAgent
        // that are supposed to be string (toString() is necessary as the map contains lists of different types)
 
        List<OffsetDateTime> carparkTimestamps = carparkReadings.get(APIInputAgent.timestampKey).stream().map(timestamp -> (convertStringToOffsetDateTime(timestamp.toString()))).collect(Collectors.toList());
-
-       // Construct a time series object for each mapping
-       List<TimeSeries<OffsetDateTime>> timeSeries = new ArrayList<>();
-       for (JSONKeyToIRIMapper mapping: mappings)
-      {
-          // Initialize the list of IRIs
+       try{
+        // Construct a time series object for each mapping
+        List<TimeSeries<OffsetDateTime>> timeSeries = new ArrayList<>();
+        for (JSONKeyToIRIMapper mapping: mappings)
+        {
+            // Initialize the list of IRIs
             List<String> iris = new ArrayList<>();
-           // Initialize the list of list of values
+            // Initialize the list of list of values
             List<List<?>> values = new ArrayList<>();
-           for(String key: mapping.getAllJSONKeys()) 
+            List<Double> NaN = new ArrayList<>();
+            NaN.add(Double.NaN);
+            List<?> NaNTyped = NaN.stream().map(x -> ((Number) x).doubleValue()).collect(Collectors.toList());
+            for(String key: mapping.getAllJSONKeys()) 
             {
                 // Add IRI
-               iris.add(mapping.getIRI(key));
-               if (carparkReadings.containsKey(key)) 
+                iris.add(mapping.getIRI(key));
+                if (carparkReadings.containsKey(key)) 
                 {
-                  values.add(carparkReadings.get(key));
+                    values.add(carparkReadings.get(key));
                 }
                 else 
                 {
-                 throw new NoSuchElementException("The key " + key + " is not contained in the readings!");
+                    values.add(NaNTyped);
                 }
-            }
-
-
-            
-
+            }  
           List<OffsetDateTime> times = carparkTimestamps;
           // Create the time series object and add it to the list
    
          TimeSeries<OffsetDateTime> currentTimeSeries = new TimeSeries<>(times, iris, values);
          timeSeries.add(currentTimeSeries);
-      }
+        }
 
      return timeSeries;
+    } catch (Exception e) {
+        throw new JPSRuntimeException("Readings cannot be converted to Proper TimeSeries.");
+      }
    }
+   
+   
    private OffsetDateTime convertStringToOffsetDateTime(String timestamp)  
    {
  // Convert first to a local time
