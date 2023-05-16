@@ -1,4 +1,4 @@
-package test.java.uk.ac.cam.cares.jps.agent.Carpark;
+package uk.ac.cam.cares.jps.agent.Carpark;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -193,7 +193,7 @@ public class APIAgentLauncherTest {
        
         String[] keys = {"CarParkID","Area","Development","Location","AvailableLots","LotType","Agency"};
         String[] carparks = {"Carpark1","Carpark2","Carpark3"};
-        JSONObject readings = newJSONObject();
+        JSONObject readings = new JSONObject();
         JSONArray jsArr = new JSONArray();
         String value="";
 
