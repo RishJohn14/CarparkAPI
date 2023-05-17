@@ -24,7 +24,8 @@ import javax.print.attribute.standard.JobHoldUntil;
 public class APIConnector
 {
     private String API_URL = "http://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2";
-    private String PRICING_API_URL = "https://data.gov.sg/api/action/datastore_search?resource_id=85207289-6ae7-4a56-9066-e6090a3684a5";
+    private String PRICING_API_URL = "https://data.gov.sg/api/action/datastore_search?resource_id=85207289-6ae7-4a56-9066-e6090a3684a5&limit=357";
+    
     private String date;
     private String accountKey;
 
